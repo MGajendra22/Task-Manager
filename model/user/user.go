@@ -1,6 +1,8 @@
 package user
 
-import "fmt"
+import (
+	"errors"
+)
 
 type User struct {
 	ID    int    `json:"id"`
@@ -8,9 +10,12 @@ type User struct {
 	Email string `json:"email"`
 }
 
+var err = errors.New("name and email cannot be empty")
+
 func (u *User) Validate() error {
 	if u.Name == "" || u.Email == "" {
-		return fmt.Errorf("name and email cannot be empty")
+		return err
 	}
+
 	return nil
 }
