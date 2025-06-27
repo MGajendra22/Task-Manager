@@ -1,14 +1,16 @@
 package main
 
 import (
-	"Task_Manager/Config"
-	"Task_Manager/Handler"
+	"Task_Manager/config"
+	"Task_Manager/handler/task"
+	"Task_Manager/handler/user"
+	Task2 "Task_Manager/service/task"
+	User2 "Task_Manager/service/user"
+	Task3 "Task_Manager/store/task"
+	User3 "Task_Manager/store/user"
 	"fmt"
 	"log"
 	"net/http"
-
-	"Task_Manager/Service"
-	"Task_Manager/Store"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -16,8 +18,8 @@ import (
 
 func main() {
 
-	Config.DataBaseConfig()
-	db := Config.DB
+	config.DataBaseConfig()
+	db := config.DB
 	//Create task table
 	//	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS tasks (
 	//	id INT AUTO_INCREMENT PRIMARY KEY,
@@ -40,14 +42,14 @@ func main() {
 	//}
 
 	// Init task dependencies
-	taskStore := Store.NewStore(db)
-	taskService := Service.NewService(taskStore)
-	taskHandler := Handler.NewHandler(taskService)
+	taskStore := Task3.NewStore(db)
+	taskService := Task2.NewService(taskStore)
+	taskHandler := task.NewHandler(taskService)
 
 	// Init user dependencies
-	userStore := Store.NewUserStore(db)
-	userService := Service.NewUserService(userStore)
-	userHandler := Handler.NewUserHandler(userService)
+	userStore := User3.NewUserStore(db)
+	userService := User2.NewUserService(userStore)
+	userHandler := user.NewUserHandler(userService)
 
 	// Setup router
 	r := mux.NewRouter()
