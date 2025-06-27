@@ -9,9 +9,12 @@ type Task struct {
 	Userid int    `json:"userid"`
 }
 
+var err = errors.New("description cannot be empty")
+
 func (t *Task) Validate() error {
 	if t.Desc == "" {
-		return errors.New("description cannot be empty")
+		return err
 	}
+
 	return nil
 }

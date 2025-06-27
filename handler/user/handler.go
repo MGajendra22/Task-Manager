@@ -2,7 +2,6 @@ package user
 
 import (
 	"Task_Manager/model/user"
-	User2 "Task_Manager/service/user"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -11,16 +10,22 @@ import (
 	"strconv"
 )
 
-type UserHandler struct {
-	Service *User2.UserService
+type UserServiceInterface interface {
+	Create(u user.User) (user.User, error)
+	Get(id int) (user.User, error)
+	Delete(id int) error
+	All() ([]user.User, error)
 }
 
-func NewUserHandler(service *User2.UserService) *UserHandler {
+type UserHandler struct {
+	Service UserServiceInterface
+}
+
+func NewUserHandler(service UserServiceInterface) *UserHandler {
 	return &UserHandler{Service: service}
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
 		return
@@ -32,24 +37,24 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
+	defer r.Body.Close()
 	// Unmarshal into struct
 	var user1 user.User
-	if err := json.Unmarshal(body, &user1); err != nil {
+
+	if err = json.Unmarshal(body, &user1); err != nil {
 		http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	// Validate and save
 	createdUser, err := h.Service.Create(user1)
 	if err != nil {
 		http.Error(w, "Error creating user: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	// Respond with created user
 	w.WriteHeader(http.StatusCreated)
+
 	if err := json.NewEncoder(w).Encode(createdUser); err != nil {
 		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 	}
@@ -58,6 +63,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	idStr := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idStr)
+
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
@@ -70,6 +76,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, _ := json.Marshal(user1) // Convert struct to JSON
+
 	_, err = w.Write(resp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -78,32 +85,35 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	idStr := mux.Vars(r)["id"]
+
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.Service.Delete(id); err != nil {
+	if err = h.Service.Delete(id); err != nil {
 		http.Error(w, "Failed to delete user: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write([]byte(fmt.Sprintf("Task %d deleted", id)))
+
+	_, err = w.Write([]byte(fmt.Sprintf("User %d Removed", id)))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-
 	users, err := h.Service.All()
 	if err != nil {
 		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
 		return
 	}
+
 	resp, _ := json.Marshal(users) // Convert struct to JSON
+
 	_, err = w.Write(resp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
