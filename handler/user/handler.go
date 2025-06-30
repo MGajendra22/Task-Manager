@@ -38,7 +38,12 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			
+		}
+	}(r.Body)
 	// Unmarshal into struct
 	var user1 user.User
 

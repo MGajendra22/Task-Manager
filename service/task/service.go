@@ -38,7 +38,7 @@ func (s *TaskService) Create(t task.Task) (task.Task, error) {
 
 	_, err := s.userServiceref.Get(t.Userid)
 	if err != nil {
-		return t, fmt.Errorf("User with ID %d does not exist: %v", t.Userid, err)
+		return t, fmt.Errorf("user with ID %d does not exist: %v", t.Userid, err)
 	}
 
 	return s.str.CreateTask(t)

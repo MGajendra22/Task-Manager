@@ -2,7 +2,6 @@ package task
 
 import (
 	"Task_Manager/model/task"
-	_ "Task_Manager/model/task"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -40,7 +39,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(r.Body)
 
 	var t task.Task
 	if err = json.Unmarshal(body, &t); err != nil {

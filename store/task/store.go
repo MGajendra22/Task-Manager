@@ -90,7 +90,12 @@ func (s *Store) GetAllTask() ([]task.Task, error) {
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
 
 	var tasks []task.Task
 
