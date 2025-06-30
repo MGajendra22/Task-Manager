@@ -16,6 +16,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
+//	@title			Task Manager API
+//	@version		1.0
+//	@description	This is a sample API for managing tasks and users.
+//	@host			localhost:8000
+//	@BasePath		/
+//	@contact.name   code Team
+//	@license.name   MIT
+//	@license.url    https://opensource.org/licenses/MIT
+//	@accept         json
+//	@produce        json
 func main() {
 	config.DataBaseConfig()
 	db := config.DB

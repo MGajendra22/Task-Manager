@@ -1,0 +1,17 @@
+basePath: /
+consumes:
+- application/json
+host: localhost:8000
+info:
+  contact:
+    name: code Team
+  description: This is a sample API for managing tasks and users.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Task Manager API
+  version: "1.0"
+paths: {}
+produces:
+- application/json
+swagger: "2.0"
