@@ -2,40 +2,70 @@ package task
 
 import (
 	"Task_Manager/model/task"
-	storePkg "Task_Manager/store/task"
+	userModel "Task_Manager/model/user"
+	"fmt"
 )
 
-type Service struct {
-	str *storePkg.Store
+type UserServiceInterface interface {
+	Get(id int) (userModel.User, error)
 }
 
-func NewService(s *storePkg.Store) *Service {
-	return &Service{str: s}
+type TaskStoreInterface interface {
+	CreateTask(task task.Task) (task.Task, error)
+	GetByIDTask(id int) (task.Task, error)
+	GetAllTask() ([]task.Task, error)
+	CompleteTask(id int) error
+	DeleteTask(id int) error
+	GetTasksByUserIDTask(userId int) ([]task.Task, error)
 }
 
-func (s *Service) Create(t task.Task) (task.Task, error) {
+type TaskService struct {
+	str            TaskStoreInterface
+	userServiceref UserServiceInterface
+}
+
+func NewService(s TaskStoreInterface, us UserServiceInterface) *TaskService {
+	return &TaskService{
+		str:            s,
+		userServiceref: us,
+	}
+}
+
+func (s *TaskService) Create(t task.Task) (task.Task, error) {
 	if err := t.Validate(); err != nil {
 		return t, err
 	}
-	return s.str.Create(t)
+
+	_, err := s.userServiceref.Get(t.Userid)
+	if err != nil {
+		return t, fmt.Errorf("user with ID %d does not exist: %v", t.Userid, err)
+	}
+
+	return s.str.CreateTask(t)
 }
 
-func (s *Service) GetTask(id int) (task.Task, error) {
-	return s.str.GetByID(id)
+func (s *TaskService) GetTask(id int) (task.Task, error) {
+	return s.str.GetByIDTask(id)
 }
 
-func (s *Service) Complete(id int) error {
-	return s.str.Complete(id)
+func (s *TaskService) Complete(id int) error {
+	return s.str.CompleteTask(id)
 }
 
-func (s *Service) Delete(id int) error {
-	return s.str.Delete(id)
+func (s *TaskService) Delete(id int) error {
+	return s.str.DeleteTask(id)
 }
 
-func (s *Service) All() ([]task.Task, error) {
-	return s.str.GetAll()
+func (s *TaskService) All() ([]task.Task, error) {
+	return s.str.GetAllTask()
 }
 
-func (s *Service) GetTasksByUserID(userid int) ([]task.Task, error) {
-	return s.str.GetTasksByUserID(userid)
+func (s *TaskService) GetTasksByUserID(userid int) ([]task.Task, error) {
+	_, err := s.userServiceref.Get(userid)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s.str.GetTasksByUserIDTask(userid)
 }

@@ -13,6 +13,7 @@ var DB *sql.DB
 func DataBaseConfig() {
 	var err error
 	DB, err = sql.Open("mysql", "root:root123@tcp(localhost:3306)/test_db?parseTime=true")
+
 	if err != nil {
 		log.Fatal("DB connection error:", err)
 	}
