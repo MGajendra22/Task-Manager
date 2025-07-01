@@ -12,6 +12,9 @@ import (
 	"log"
 	"net/http"
 
+	_ "Task_Manager/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 )
@@ -30,6 +33,7 @@ func main() {
 	// Setup router
 	r := mux.NewRouter()
 	// Task routes
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 	r.HandleFunc("/task", taskHandler.Create).Methods("POST")
 	r.HandleFunc("/task/{id}", taskHandler.GetTask).Methods("GET")
 	r.HandleFunc("/task/{id}", taskHandler.Complete).Methods("PUT")
@@ -45,24 +49,3 @@ func main() {
 	fmt.Println("Server running at http://localhost:8000")
 	log.Fatal(http.ListenAndServe(":8000", r))
 }
-
-//Create task table
-//	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS tasks (
-//	id INT AUTO_INCREMENT PRIMARY KEY,
-//	description VARCHAR(255),
-//	status BOOLEAN ,
-//  userid INT UNSIGNED NOT NULL
-//)`)
-//if err != nil {
-//	log.Fatal("Failed to create tasks table:", err)
-//}
-//
-//// Create user table
-//_, err = db.Exec(`CREATE TABLE IF NOT EXISTS users (
-//	id INT AUTO_INCREMENT PRIMARY KEY,
-//	name VARCHAR(100),
-//	email VARCHAR(100)
-//)`)
-//if err != nil {
-//	log.Fatal("Failed to create users table:", err)
-//}

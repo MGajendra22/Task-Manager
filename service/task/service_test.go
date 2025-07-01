@@ -1,164 +1,275 @@
 package task
 
 import (
-	taskModel "Task_Manager/model/task"
+	"Task_Manager/model/task"
 	"Task_Manager/model/user"
 	"errors"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"testing"
 )
 
-// Mock TaskStoreInterface
-type mockTaskStore struct{}
-
-func (m mockTaskStore) CreateTask(t taskModel.Task) (taskModel.Task, error) {
-	t.ID = 101
-	return t, nil
-}
-func (m mockTaskStore) GetByIDTask(id int) (taskModel.Task, error) {
-	if id == 0 {
-		return taskModel.Task{}, errors.New("not found")
+func Test_Create(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       task.Task
+		mockUser    user.User
+		mockTaskOut task.Task
+		userErr     error
+		taskErr     error
+		expErr      bool
+	}{
+		{
+			name:        "Valid Task Creation",
+			input:       task.Task{ID: 1, Desc: "Do Work", Status: false, Userid: 10},
+			mockUser:    user.User{ID: 10, Name: "Alice", Email: "alice@example.com"},
+			mockTaskOut: task.Task{ID: 1, Desc: "Do Work", Status: false, Userid: 10},
+			expErr:      false,
+		},
+		{
+			name:   "Validation Error - Empty Desc",
+			input:  task.Task{ID: 2, Desc: "", Userid: 10},
+			expErr: true,
+		},
+		{
+			name:    "User Not Found",
+			input:   task.Task{ID: 3, Desc: "Plan", Userid: 20},
+			userErr: errors.New("user not found"),
+			expErr:  true,
+		},
+		{
+			name:     "Task Store Error",
+			input:    task.Task{ID: 4, Desc: "Build", Userid: 11},
+			mockUser: user.User{ID: 11, Name: "Bob", Email: "bob@example.com"},
+			taskErr:  errors.New("db write failed"),
+			expErr:   true,
+		},
 	}
-	return taskModel.Task{ID: id, Desc: "Test", Userid: 1}, nil
-}
-func (m mockTaskStore) GetAllTask() ([]taskModel.Task, error) {
-	return []taskModel.Task{{ID: 1, Desc: "Task1"}}, nil
-}
-func (m mockTaskStore) CompleteTask(id int) error {
-	if id == 999 {
-		return errors.New("not found")
+
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockStore := NewMockTaskStoreInterface(ctrl)
+		mockUserServ := NewMockUserServiceInterface(ctrl)
+		service := NewService(mockStore, mockUserServ)
+
+		if err := tt.input.Validate(); err == nil {
+			mockUserServ.EXPECT().
+				Get(tt.input.Userid).
+				Return(tt.mockUser, tt.userErr)
+
+			if tt.userErr == nil {
+				mockStore.EXPECT().
+					CreateTask(tt.input).
+					Return(tt.mockTaskOut, tt.taskErr)
+			}
+		}
+
+		result, err := service.Create(tt.input)
+
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+			assert.Equal(t, tt.mockTaskOut, result, tt.name)
+		}
 	}
-	return nil
 }
-func (m mockTaskStore) DeleteTask(id int) error {
-	if id == 999 {
-		return errors.New("not found")
+
+func Test_GetTask(t *testing.T) {
+	tests := []struct {
+		name       string
+		id         int
+		mockOutput task.Task
+		mockErr    error
+		expErr     bool
+	}{
+		{"Valid Id", 1, task.Task{1, "Working", false, 1}, nil, false},
+		{"Task Not found", 1, task.Task{}, errors.New("task not found"), true},
 	}
-	return nil
-}
-func (m mockTaskStore) GetTasksByUserIDTask(userId int) ([]taskModel.Task, error) {
-	if userId <= 0 {
-		return nil, errors.New("invalid user")
+
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockStore := NewMockTaskStoreInterface(ctrl)
+		mockUserServ := NewMockUserServiceInterface(ctrl)
+		service := NewService(mockStore, mockUserServ)
+
+		mockStore.EXPECT().
+			GetByIDTask(tt.id).
+			Return(tt.mockOutput, tt.mockErr)
+
+		res, err := service.GetTask(tt.id)
+
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+			assert.Equal(t, tt.mockOutput, res, tt.name)
+		}
+
 	}
-	return []taskModel.Task{{ID: 1, Desc: "UserTask", Userid: userId}}, nil
 }
 
-// Mock UserServiceInterface
-type mockUserService struct{}
-
-func (m mockUserService) Get(id int) (user.User, error) {
-	if id <= 0 {
-		return user.User{}, errors.New("user not found")
+func Test_AllTasks(t *testing.T) {
+	tests := []struct {
+		name       string
+		mockOutput []task.Task
+		mockErr    error
+		expErr     bool
+	}{
+		{"Data fetched", []task.Task{{1, "Working", false, 1}}, nil, false},
+		{"Unable to fetch", []task.Task{}, errors.New("task not found"), true},
 	}
-	return user.User{ID: id, Name: "John"}, nil
+
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockStore := NewMockTaskStoreInterface(ctrl)
+		mockUserServ := NewMockUserServiceInterface(ctrl)
+		service := NewService(mockStore, mockUserServ)
+		mockStore.EXPECT().GetAllTask().Return(tt.mockOutput, tt.mockErr)
+
+		res, err := service.All()
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+			assert.ElementsMatch(t, tt.mockOutput, res, tt.name)
+		}
+
+	}
 }
 
-func TestService_Create(t *testing.T) {
-	svc := NewService(mockTaskStore{}, mockUserService{})
+func Test_CompleteTask(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		taskErr error
+		expErr  bool
+	}{
+		{
+			name:   "Valid Task Creation",
+			input:  1,
+			expErr: false,
+		},
+		{
+			name:    "Task Not Found",
+			input:   1,
+			taskErr: errors.New("user not found"),
+			expErr:  true,
+		},
+	}
 
-	t.Run("invalid task (validation fails)", func(t *testing.T) {
-		invalid := taskModel.Task{Desc: "", Userid: 1}
-		_, err := svc.Create(invalid)
-		if err == nil {
-			t.Errorf("expected validation error")
-		}
-	})
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockStore := NewMockTaskStoreInterface(ctrl)
 
-	t.Run("user not found", func(t *testing.T) {
-		input := taskModel.Task{Desc: "Valid", Userid: -1}
-		_, err := svc.Create(input)
-		if err == nil {
-			t.Errorf("expected user not found error")
-		}
-	})
+		service := NewService(mockStore, nil)
+		mockStore.EXPECT().CompleteTask(tt.input).Return(tt.taskErr).AnyTimes()
 
-	t.Run("success", func(t *testing.T) {
-		input := taskModel.Task{Desc: "Do this", Userid: 1}
-		createdTask, err := svc.Create(input)
-		if err != nil || createdTask.ID != 101 {
-			t.Errorf("expected task ID 101, got %v, err: %v", createdTask.ID, err)
+		err := service.Complete(tt.input)
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+
 		}
-	})
+
+	}
 }
 
-func TestService_GetTask(t *testing.T) {
-	svc := NewService(mockTaskStore{}, mockUserService{})
+func Test_DeleteTask(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		taskErr error
+		expErr  bool
+	}{
+		{
+			name:   "Valid Task Deletion",
+			input:  1,
+			expErr: false,
+		},
+		{
+			name:    "Task Not Found",
+			input:   1,
+			taskErr: errors.New("Task not found"),
+			expErr:  true,
+		},
+	}
 
-	t.Run("not found", func(t *testing.T) {
-		_, err := svc.GetTask(0)
-		if err == nil {
-			t.Errorf("expected error for id=0")
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockStore := NewMockTaskStoreInterface(ctrl)
+		service := NewService(mockStore, nil)
+		mockStore.EXPECT().DeleteTask(tt.input).Return(tt.taskErr).AnyTimes()
+		err := service.Delete(tt.input)
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
 		}
-	})
+	}
 
-	t.Run("success", func(t *testing.T) {
-		result, err := svc.GetTask(5)
-		if err != nil || result.ID != 5 {
-			t.Errorf("unexpected task result: %+v, err: %v", result, err)
-		}
-	})
 }
 
-func TestService_Complete(t *testing.T) {
-	svc := NewService(mockTaskStore{}, mockUserService{})
+func Test_GetTasksByUserId(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      int
+		mockUser   user.User
+		userErr    error
+		mockOutput []task.Task
+		mockErr    error
+		expErr     bool
+	}{
+		{
+			name:       "Data fetched",
+			input:      1,
+			mockUser:   user.User{ID: 1, Name: "Test", Email: "test@test.com"},
+			userErr:    nil,
+			mockOutput: []task.Task{{ID: 1, Desc: "Working", Status: false, Userid: 1}},
+			mockErr:    nil,
+			expErr:     false,
+		},
+		{
+			name:       "User not found",
+			input:      2,
+			userErr:    errors.New("User Not found"),
+			mockOutput: nil,
+			expErr:     true,
+		},
+	}
 
-	t.Run("invalid ID", func(t *testing.T) {
-		err := svc.Complete(999)
-		if err == nil {
-			t.Errorf("expected error for invalid id")
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockStore := NewMockTaskStoreInterface(ctrl)
+		mockUserServ := NewMockUserServiceInterface(ctrl)
+		service := NewService(mockStore, mockUserServ)
+
+		mockUserServ.EXPECT().
+			Get(tt.input).
+			Return(tt.mockUser, tt.userErr)
+
+		if tt.userErr == nil {
+			mockStore.EXPECT().
+				GetTasksByUserIDTask(tt.input).
+				Return(tt.mockOutput, tt.mockErr)
 		}
-	})
 
-	t.Run("success", func(t *testing.T) {
-		err := svc.Complete(1)
-		if err != nil {
-			t.Errorf("expected success, got error: %v", err)
+		res, err := service.GetTasksByUserID(tt.input)
+
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+			assert.ElementsMatch(t, tt.mockOutput, res, tt.name)
 		}
-	})
-}
-
-func TestService_Delete(t *testing.T) {
-	svc := NewService(mockTaskStore{}, mockUserService{})
-
-	t.Run("invalid ID", func(t *testing.T) {
-		err := svc.Delete(999)
-		if err == nil {
-			t.Errorf("expected error for invalid id")
-		}
-	})
-
-	t.Run("success", func(t *testing.T) {
-		err := svc.Delete(1)
-		if err != nil {
-			t.Errorf("expected success, got error: %v", err)
-		}
-	})
-}
-
-func TestService_All(t *testing.T) {
-	svc := NewService(mockTaskStore{}, mockUserService{})
-
-	t.Run("returns all tasks", func(t *testing.T) {
-		tasks, err := svc.All()
-		if err != nil || len(tasks) != 1 {
-			t.Errorf("expected 1 task, got %v, err: %v", tasks, err)
-		}
-	})
-}
-
-func TestService_GetTasksByUserID(t *testing.T) {
-	svc := NewService(mockTaskStore{}, mockUserService{})
-
-	t.Run("user not found", func(t *testing.T) {
-		_, err := svc.GetTasksByUserID(-1)
-		if err == nil {
-			t.Errorf("expected error for invalid user")
-		}
-	})
-
-	t.Run("success", func(t *testing.T) {
-		tasks, err := svc.GetTasksByUserID(1)
-		if err != nil || len(tasks) != 1 || tasks[0].Userid != 1 {
-			t.Errorf("unexpected tasks: %+v, err: %v", tasks, err)
-		}
-	})
+	}
 }

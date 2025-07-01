@@ -1,0 +1,168 @@
+{
+    "consumes": ["application/json"],
+    "produces": ["application/json"],
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a sample API for managing tasks and users.",
+        "title": "Task Manager API",
+        "contact": {
+            "name": "code Team"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8000",
+    "basePath": "/",
+    "paths": {
+        "/task": {
+            "get": {
+                "summary": "Fetch all tasks",
+                "tags": ["tasks"],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/task.Task" }
+                        }
+                    },
+                    "500": { "description": "Failed to fetch tasks" }
+                }
+            },
+            "post": {
+                "summary": "Create task",
+                "tags": ["tasks"],
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "task",
+                        "required": true,
+                        "schema": { "$ref": "#/definitions/task.Task" }
+                    }
+                ],
+                "responses": {
+                    "201": { "description": "Created" },
+                    "400": { "description": "Validation error" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/task/{id}": {
+            "get": {
+                "summary": "Get task by ID",
+                "tags": ["tasks"],
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "type": "integer" }
+                ],
+                "responses": {
+                    "200": { "description": "OK" },
+                    "404": { "description": "Task not found" }
+                }
+            },
+            "put": {
+                "summary": "Complete task",
+                "tags": ["tasks"],
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "type": "integer" }
+                ],
+                "responses": { "200": { "description": "Task completed" } }
+            },
+            "delete": {
+                "summary": "Delete task",
+                "tags": ["tasks"],
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "type": "integer" }
+                ],
+                "responses": { "200": { "description": "Task deleted" } }
+            }
+        },
+        "/task/user/{userid}": {
+            "get": {
+                "summary": "Get tasks by user ID",
+                "tags": ["tasks"],
+                "parameters": [
+                    { "name": "userid", "in": "path", "required": true, "type": "integer" }
+                ],
+                "responses": {
+                    "200": { "description": "OK" },
+                    "404": { "description": "Tasks not found" }
+                }
+            }
+        },
+        "/users": {
+            "get": {
+                "summary": "Get all users",
+                "tags": ["users"],
+                "responses": {
+                    "200": {
+                        "description": "List of users",
+                        "schema": {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/user.User" }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create user",
+                "tags": ["users"],
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "user",
+                        "required": true,
+                        "schema": { "$ref": "#/definitions/user.User" }
+                    }
+                ],
+                "responses": {
+                    "201": { "description": "User created" },
+                    "400": { "description": "Invalid input" }
+                }
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "summary": "Get user by ID",
+                "tags": ["users"],
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "type": "integer" }
+                ],
+                "responses": {
+                    "200": { "description": "User details" },
+                    "404": { "description": "User not found" }
+                }
+            },
+            "delete": {
+                "summary": "Delete user",
+                "tags": ["users"],
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "type": "integer" }
+                ],
+                "responses": { "200": { "description": "User deleted" } }
+            }
+        }
+    },
+    "definitions": {
+        "task.Task": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer" },
+                "desc": { "type": "string" },
+                "status": { "type": "boolean" },
+                "userid": { "type": "integer" }
+            }
+        },
+        "user.User": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+            },
+            "required": ["name", "email"]
+        }
+    }
+}

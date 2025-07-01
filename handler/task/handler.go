@@ -10,18 +10,11 @@ import (
 	"strconv"
 )
 
-type TaskServiceInterface interface {
-	Create(t task.Task) (task.Task, error)
-	GetTask(id int) (task.Task, error)
-	Complete(id int) error
-	Delete(id int) error
-	All() ([]task.Task, error)
-	GetTasksByUserID(userId int) ([]task.Task, error)
-}
 type Handler struct {
 	svc TaskServiceInterface
 }
 
+// NewHandler : Factory function to implement and return behaviour
 func NewHandler(s TaskServiceInterface) *Handler {
 	return &Handler{svc: s}
 }
@@ -29,7 +22,7 @@ func NewHandler(s TaskServiceInterface) *Handler {
 // Create Task (POST /task)
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -44,6 +37,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}(r.Body)
 
 	var t task.Task
+
 	if err = json.Unmarshal(body, &t); err != nil {
 		http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
 		return
@@ -55,22 +49,26 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, _ := json.Marshal(task1)
+	resp, err := json.Marshal(task1)
+
+	if err != nil {
+		http.Error(w, "Failed to marshal task: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	w.WriteHeader(http.StatusCreated)
 
-	_, err = w.Write(resp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if _, err := w.Write(resp); err != nil {
+		fmt.Println("Write failed:", err)
 	}
+
 }
 
 // GetTask by ID (GET /task/{id})
 func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -88,21 +86,25 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, _ := json.Marshal(task1)
+	resp, err := json.Marshal(task1)
+
+	if err != nil {
+		http.Error(w, "Failed to marshal response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
-	_, err = w.Write(resp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if _, err := w.Write(resp); err != nil {
+		fmt.Println("Write failed:", err)
 	}
 }
 
-//GetTasksByUserID which are assigned to user_id
-
+// GetTasksByUserID which are assigned to user_id
 func (h *Handler) GetTasksByUserID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -111,17 +113,23 @@ func (h *Handler) GetTasksByUserID(w http.ResponseWriter, r *http.Request) {
 	userid, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
 	}
 
 	tasks, err := h.svc.GetTasksByUserID(userid)
 	if err != nil {
 		http.Error(w, "Task not found", http.StatusNotFound)
+		return
 	}
 
-	resp, _ := json.Marshal(tasks)
+	resp, err := json.Marshal(tasks)
+
+	if err != nil {
+		http.Error(w, "Failed to marshal response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	w.WriteHeader(http.StatusOK)
 
 	_, err = w.Write(resp)
@@ -134,7 +142,7 @@ func (h *Handler) GetTasksByUserID(w http.ResponseWriter, r *http.Request) {
 // Complete Task (PUT /task/{id})
 func (h *Handler) Complete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -162,7 +170,7 @@ func (h *Handler) Complete(w http.ResponseWriter, r *http.Request) {
 // Delete Task (DELETE /task/{id})
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -190,7 +198,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 // All Tasks (GET /task)
 func (h *Handler) All(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -200,12 +208,18 @@ func (h *Handler) All(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, _ := json.Marshal(tasks)
+	resp, err := json.Marshal(tasks)
+
+	if err != nil {
+		http.Error(w, "Failed to marshal response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
-	_, err = w.Write(resp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if _, err := w.Write(resp); err != nil {
+		http.Error(w, "Write failed: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 }

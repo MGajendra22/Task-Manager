@@ -111,4 +111,5 @@ func Test_GetAllUser(t *testing.T) {
 		_, err := store.GetAllUser()
 		require.Error(t, err)
 	})
+
 }

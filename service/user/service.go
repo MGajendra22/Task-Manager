@@ -4,13 +4,6 @@ import (
 	"Task_Manager/model/user"
 )
 
-type UserStoreInterface interface {
-	CreateUser(u user.User) (user.User, error)
-	GetByIDUser(id int) (user.User, error)
-	DeleteUser(id int) error
-	GetAllUser() ([]user.User, error)
-}
-
 type UserService struct {
 	store UserStoreInterface
 }
@@ -37,4 +30,5 @@ func (s *UserService) Delete(id int) error {
 
 func (s *UserService) All() ([]user.User, error) {
 	return s.store.GetAllUser()
+
 }

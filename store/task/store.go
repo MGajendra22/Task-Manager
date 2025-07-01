@@ -29,6 +29,7 @@ func (s *Store) CreateTask(t task.Task) (task.Task, error) {
 	t.ID = int(id)
 
 	return t, nil
+
 }
 
 // GetByIDTask fetches a task by its ID
