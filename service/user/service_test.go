@@ -1,84 +1,153 @@
 package user
 
 import (
+	_ "Task_Manager/model/task"
 	"Task_Manager/model/user"
 	"errors"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
-type mockUserStore struct{}
+func Test_CreateUser(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      user.User
+		mockOutput user.User
+		mockError  error
+		expErr     bool
+	}{
+		{
+			name:       "Valid user",
+			input:      user.User{ID: 1, Name: "Alice", Email: "alice@example.com"},
+			mockOutput: user.User{ID: 1, Name: "Alice", Email: "alice@example.com"},
+			mockError:  nil,
+			expErr:     false,
+		},
+		{
+			name:   "Validation error",
+			input:  user.User{ID: 2, Name: "", Email: ""},
+			expErr: true,
+		},
 
-func (m mockUserStore) CreateUser(u user.User) (user.User, error) {
-	if u.Name == "fail" {
-		return user.User{}, errors.New("create failed")
+		{
+			name:      "Store error",
+			input:     user.User{ID: 3, Name: "Bob", Email: "bob@example.com"},
+			mockError: errors.New("db error"),
+			expErr:    true,
+		},
 	}
-	u.ID = 1
-	return u, nil
-}
 
-func (m mockUserStore) GetByIDUser(id int) (user.User, error) {
-	if id <= 0 {
-		return user.User{}, errors.New("not found")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockstore := NewMockUserStoreInterface(ctrl)
+			service := NewUserService(mockstore)
+			mockstore.EXPECT().CreateUser(gomock.Any()).Return(tt.mockOutput, tt.mockError).AnyTimes()
+
+			result, err := service.Create(tt.input)
+
+			if tt.expErr {
+				assert.Error(t, err, tt.name)
+			} else {
+				assert.NoError(t, err, tt.name)
+				assert.Equal(t, tt.mockOutput, result)
+			}
+		})
 	}
-	return user.User{ID: id, Name: "John"}, nil
 }
 
-func (m mockUserStore) DeleteUser(id int) error {
-	if id <= 0 {
-		return errors.New("delete error")
+func Test_GetUser(t *testing.T) {
+	tests := []struct {
+		name       string
+		id         int
+		mockOutput user.User
+		mockErr    error
+		expErr     bool
+	}{
+		{"Valid Id", 1, user.User{1, "John", "mail"}, nil, false},
+		{"User not found", 2, user.User{}, errors.New("task not found"), true},
 	}
-	return nil
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockstore := NewMockUserStoreInterface(ctrl)
+		service := NewUserService(mockstore)
+
+		mockstore.EXPECT().GetByIDUser(tt.id).Return(tt.mockOutput, tt.mockErr).AnyTimes()
+		result, err := service.Get(tt.id)
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+			assert.Equal(t, tt.mockOutput, result)
+		}
+	}
 }
 
-func (m mockUserStore) GetAllUser() ([]user.User, error) {
-	return []user.User{{ID: 1, Name: "A"}}, nil
+func Test_DeleteUser(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		taskErr error
+		expErr  bool
+	}{
+		{
+			name:   "Valid user Deletion",
+			input:  1,
+			expErr: false,
+		},
+		{
+			name:    "User Not Found",
+			input:   1,
+			taskErr: errors.New("user not found"),
+			expErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockstore := NewMockUserStoreInterface(ctrl)
+		service := NewUserService(mockstore)
+		mockstore.EXPECT().DeleteUser(tt.input).Return(tt.taskErr).AnyTimes()
+		err := service.Delete(tt.input)
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+
+		}
+	}
+
 }
 
-func TestUserService_Create(t *testing.T) {
-	svc := NewUserService(mockUserStore{})
+func Test_GetAllUsers(t *testing.T) {
+	tests := []struct {
+		name       string
+		mockOutput []user.User
+		mockErr    error
+		expErr     bool
+	}{
+		{"Data fetched", []user.User{{1, "John", "mail"}}, nil, false},
+		{"Unable to fetch", []user.User{}, errors.New("task not found"), true},
+	}
 
-	t.Run("validation error", func(t *testing.T) {
-		u := user.User{Name: ""}
-		_, err := svc.Create(u)
-		require.Error(t, err)
-	})
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockstore := NewMockUserStoreInterface(ctrl)
+		service := NewUserService(mockstore)
 
-	t.Run("store error", func(t *testing.T) {
-		u := user.User{Name: "fail", Email: "x@y.com"}
-		_, err := svc.Create(u)
-		require.Error(t, err)
-	})
+		mockstore.EXPECT().GetAllUser().Return(tt.mockOutput, tt.mockErr).AnyTimes()
 
-	t.Run("success", func(t *testing.T) {
-		u := user.User{Name: "John", Email: "a@b.com"}
-		created, err := svc.Create(u)
-		require.NoError(t, err)
-		require.Equal(t, 1, created.ID)
-	})
-}
-
-func TestUserService_Get(t *testing.T) {
-	svc := NewUserService(mockUserStore{})
-	_, err := svc.Get(0)
-	require.Error(t, err)
-	usr, err := svc.Get(2)
-	require.NoError(t, err)
-	require.Equal(t, 2, usr.ID)
-}
-
-func TestUserService_Delete(t *testing.T) {
-	svc := NewUserService(mockUserStore{})
-	err := svc.Delete(0)
-	require.Error(t, err)
-	err = svc.Delete(1)
-	require.NoError(t, err)
-}
-
-func TestUserService_All(t *testing.T) {
-	svc := NewUserService(mockUserStore{})
-	users, err := svc.All()
-	require.NoError(t, err)
-	require.Len(t, users, 1)
+		res, err := service.All()
+		if tt.expErr {
+			assert.Error(t, err, tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+			assert.Equal(t, tt.mockOutput, res)
+		}
+	}
 }

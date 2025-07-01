@@ -10,24 +10,20 @@ import (
 	"strconv"
 )
 
-type UserServiceInterface interface {
-	Create(u user.User) (user.User, error)
-	Get(id int) (user.User, error)
-	Delete(id int) error
-	All() ([]user.User, error)
-}
-
 type UserHandler struct {
 	Service UserServiceInterface
 }
 
+// NewUserHandler : Factory function to implement and return behaviour
 func NewUserHandler(service UserServiceInterface) *UserHandler {
 	return &UserHandler{Service: service}
 }
 
+// CreateUser : Creates user (POST /task)
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -41,7 +37,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			
+			fmt.Println("Failed to close body")
 		}
 	}(r.Body)
 	// Unmarshal into struct
@@ -65,7 +61,14 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUser : To retrieve user with user-id
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+
+	}
 	idStr := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idStr)
 
@@ -81,14 +84,20 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, _ := json.Marshal(user1) // Convert struct to JSON
-
+	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(resp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
+// DeleteUser : To delete user with user-id
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	idStr := mux.Vars(r)["id"]
 
 	id, err := strconv.Atoi(idStr)
@@ -110,7 +119,13 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetAllUsers : To retrieve all users
 func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	users, err := h.Service.All()
 	if err != nil {
 		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
@@ -118,7 +133,7 @@ func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, _ := json.Marshal(users) // Convert struct to JSON
-
+	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(resp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -72,4 +72,5 @@ func (us *UserStore) GetAllUser() ([]user.User, error) {
 	}
 
 	return users, nil
+
 }
